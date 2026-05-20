@@ -1,11 +1,15 @@
 # main.py
 from contextlib import asynccontextmanager
+from pathlib import Path
+
 from fastapi import FastAPI, WebSocket
-import uvicorn
+from fastapi.responses import FileResponse
 
 from .websocket_handler import websocket_endpoint
 from .workers import start_workers
 from .model import load_asr_model  # Import our loading orchestrator
+
+INDEX_HTML = Path(__file__).with_name("index.html")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -20,6 +24,11 @@ async def lifespan(app: FastAPI):
 
 # Register the lifespan loop directly into your app
 app = FastAPI(lifespan=lifespan)
+
+
+@app.get("/")
+async def index():
+    return FileResponse(INDEX_HTML)
 
 
 @app.websocket("/ws")
