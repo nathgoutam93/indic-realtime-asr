@@ -7,5 +7,5 @@ pip install -r requirements.txt
 
 # Run 
 ```
-python3 test.py
+python3 run.py 
 ```
