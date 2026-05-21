@@ -9,7 +9,7 @@ from .websocket_handler import websocket_endpoint
 from .workers import start_workers
 from .model import load_asr_model  # Import our loading orchestrator
 
-INDEX_HTML = Path(__file__).with_name("index.html")
+INDEX_HTML = Path(__file__).with_name("index-with-vad.html")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
