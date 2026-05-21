@@ -8,4 +8,5 @@ class TranscriptionJob:
     client_id: str
     chunk_id: int
     wav: torch.Tensor
+    is_partial: bool 
     language: str

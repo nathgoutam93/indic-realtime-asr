@@ -2,6 +2,7 @@ fastapi
 uvicorn
 numpy
 av
+silero-vad
 dotenv
 websockets
 rapidfuzz
