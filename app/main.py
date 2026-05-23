@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse
 from .websocket_handler import websocket_endpoint
 from .workers import start_workers
 from .model import load_asr_model  # Import our loading orchestrator
+from .vad_model import load_vad_model
 
 INDEX_HTML = Path(__file__).with_name("index-with-vad.html")
 
@@ -15,6 +16,7 @@ INDEX_HTML = Path(__file__).with_name("index-with-vad.html")
 async def lifespan(app: FastAPI):
     # 1. This runs EXACTLY ONCE when the actual live worker process boots up
     load_asr_model()
+    load_vad_model()
     
     # 2. Kick off your asyncio background worker loops
     await start_workers(num_workers=2)

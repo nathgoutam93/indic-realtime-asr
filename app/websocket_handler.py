@@ -9,12 +9,13 @@ import asyncio
 from fastapi import WebSocket
 from starlette.websockets import WebSocketDisconnect
 
-from silero_vad import load_silero_vad, VADIterator
+from silero_vad import VADIterator
 
 from .queue_manager import transcription_queue
 from .schemas import TranscriptionJob
 from .connection_manager import manager
 from .workers import cleanup_client
+from .vad_model import get_vad_model
 
 
 # =========================================================
@@ -128,11 +129,8 @@ async def websocket_endpoint(websocket: WebSocket):
         "chunk_counter": 0,
     }
 
-    # =====================================================
-    # Load Silero VAD
-    # =====================================================
-
-    vad_model = load_silero_vad()
+    # Each client needs its own iterator state, but the model is shared.
+    vad_model = get_vad_model()
 
     vad_iterator = VADIterator(
         vad_model,
