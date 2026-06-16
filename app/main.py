@@ -1,4 +1,5 @@
 # main.py
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -11,6 +12,12 @@ from .model import load_asr_model  # Import our loading orchestrator
 from .vad_model import load_vad_model
 
 INDEX_HTML = Path(__file__).with_name("index-with-vad.html")
+ASR_WORKERS = int(
+    os.getenv(
+        "ASR_WORKERS",
+        "1",
+    )
+)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -19,7 +26,7 @@ async def lifespan(app: FastAPI):
     load_vad_model()
     
     # 2. Kick off your asyncio background worker loops
-    await start_workers(num_workers=2)
+    await start_workers(num_workers=ASR_WORKERS)
     
     yield
     # Any teardown logic (if needed) goes here when the app closes

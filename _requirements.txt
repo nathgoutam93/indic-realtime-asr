@@ -6,13 +6,12 @@ silero-vad
 dotenv
 websockets
 rapidfuzz
-python-multipart
 
+onnx
 onnxruntime
+onnxruntime-gpu
 transformers
 huggingface_hub
-
---extra-index-url https://download.pytorch.org/whl/cpu
 
 torch
 torchaudio

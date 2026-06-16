@@ -1,7 +1,11 @@
 import asyncio
 from rapidfuzz import fuzz
 
-from .queue_manager import transcription_queue
+from .queue_manager import (
+    cleanup_client_queue_state,
+    dequeue_transcription_job,
+    transcription_queue,
+)
 from .connection_manager import manager
 from .model import transcribe
 
@@ -193,7 +197,7 @@ async def inference_worker(worker_id: int):
 
     while True:
 
-        job = await transcription_queue.get()
+        job = await dequeue_transcription_job()
 
         try:
 
@@ -215,43 +219,13 @@ async def inference_worker(worker_id: int):
 
             raw_text = raw_text.strip()
 
-            websocket = manager.get(job.client_id)
+            connection = manager.get(job.client_id)
 
-            if not websocket:
+            if not connection:
                 continue
 
             # =============================================
-            # PARTIAL STREAMING HYPOTHESIS
-            # =============================================
-
-            if job.is_partial:
-
-                # DO NOT deduplicate against
-                # finalized history
-                #
-                # partials are unstable
-                # and mutate continuously
-
-                partial_text = post_process_transcript(
-                    raw_text
-                )
-
-                if not partial_text.strip():
-                    continue
-
-                await websocket.send_json({
-                    "client_id": job.client_id,
-                    "type": "transcription",
-                    "request_id": job.request_id,
-                    "chunk_id": job.chunk_id,
-                    "text": partial_text,
-                    "is_partial": True,
-                })
-
-                continue
-
-            # =============================================
-            # FINALIZED UTTERANCE
+            # FINALIZED CHUNK
             # =============================================
 
             prev_final = client_final_text.get(
@@ -320,7 +294,7 @@ async def inference_worker(worker_id: int):
             # send finalized transcript
             # =============================================
 
-            await websocket.send_json({
+            await connection.send_json({
                 "client_id": job.client_id,
                 "type": "transcription",
                 "request_id": job.request_id,
@@ -331,13 +305,13 @@ async def inference_worker(worker_id: int):
 
         except Exception as e:
 
-            websocket = manager.get(
+            connection = manager.get(
                 job.client_id
             )
 
-            if websocket:
+            if connection:
 
-                await websocket.send_json({
+                await connection.send_json({
                     "type": "error",
                     "request_id": job.request_id,
                     "message": str(e),
@@ -353,6 +327,7 @@ async def inference_worker(worker_id: int):
 # =========================================================
 
 def cleanup_client(client_id: str):
+    cleanup_client_queue_state(client_id)
 
     client_final_text.pop(
         client_id,

@@ -544,6 +544,7 @@
 
     let isRecordingState = false;
     let isSpeechActive = false;
+    let vadHeartbeatTimer;
 
     let finalizedTranscript = "";
     let livePartial = "";
@@ -626,7 +627,7 @@
         statusText.textContent =
           isSpeechActive
             ? "Speaking"
-            : "Waiting for speech";
+            : "Listening";
 
         languageSelect.disabled = true;
       }
@@ -714,6 +715,13 @@
           vad.pause();
 
           vad = null;
+        }
+
+        if (vadHeartbeatTimer) {
+
+          clearInterval(vadHeartbeatTimer);
+
+          vadHeartbeatTimer = null;
         }
 
         if (
@@ -1020,8 +1028,6 @@
             isSpeechActive = true;
 
             updateUiState('listening');
-
-            beginMediaRecorder();
           },
 
           onSpeechEnd: () => {
@@ -1033,13 +1039,22 @@
             isSpeechActive = false;
 
             updateUiState('listening');
-
-            endMediaRecorder();
           },
         });
 
 
         vad.start();
+
+        vadHeartbeatTimer = setInterval(
+          () => {
+            if (isRecordingState) {
+              updateUiState('listening');
+            }
+          },
+          1000
+        );
+
+        beginMediaRecorder();
 
         updateUiState('listening');
 

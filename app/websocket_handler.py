@@ -1,6 +1,7 @@
 import uuid
 import threading
 import io
+import os
 import numpy as np
 import torch
 import av
@@ -11,11 +12,11 @@ from starlette.websockets import WebSocketDisconnect
 
 from silero_vad import VADIterator
 
-from .queue_manager import transcription_queue
+from .queue_manager import enqueue_transcription_job
 from .schemas import TranscriptionJob
 from .connection_manager import manager
 from .workers import cleanup_client
-from .vad_model import get_vad_model
+from .vad_model import get_vad_model, run_vad
 
 
 # =========================================================
@@ -33,13 +34,50 @@ VAD_THRESHOLD = 0.5
 MIN_SILENCE_DURATION_MS = 500
 SPEECH_PAD_MS = 200
 
-# Partial realtime transcription interval
-PARTIAL_TRANSCRIPTION_INTERVAL_SECONDS = 1.0
-
-PARTIAL_SAMPLES = int(
-    SAMPLE_RATE * PARTIAL_TRANSCRIPTION_INTERVAL_SECONDS
+# Fixed finalized speech chunks
+TRANSCRIPTION_CHUNK_SECONDS = float(
+    os.getenv(
+        "TRANSCRIPTION_CHUNK_SECONDS",
+        "2.0",
+    )
 )
 
+TRANSCRIPTION_OVERLAP_SECONDS = float(
+    os.getenv(
+        "TRANSCRIPTION_OVERLAP_SECONDS",
+        "0.5",
+    )
+)
+
+MIN_FINAL_FLUSH_SECONDS = float(
+    os.getenv(
+        "MIN_FINAL_FLUSH_SECONDS",
+        "0.6",
+    )
+)
+
+CHUNK_SAMPLES = int(
+    SAMPLE_RATE * TRANSCRIPTION_CHUNK_SECONDS
+)
+
+OVERLAP_SAMPLES = int(
+    SAMPLE_RATE * TRANSCRIPTION_OVERLAP_SECONDS
+)
+
+MIN_FINAL_FLUSH_SAMPLES = int(
+    SAMPLE_RATE * MIN_FINAL_FLUSH_SECONDS
+)
+
+if CHUNK_SAMPLES <= 0:
+    raise ValueError(
+        "TRANSCRIPTION_CHUNK_SECONDS must be greater than 0"
+    )
+
+if OVERLAP_SAMPLES >= CHUNK_SAMPLES:
+    raise ValueError(
+        "TRANSCRIPTION_OVERLAP_SECONDS must be less than "
+        "TRANSCRIPTION_CHUNK_SECONDS"
+    )
 
 # =========================================================
 # Blocking pipe: asyncio producer → PyAV consumer
@@ -150,9 +188,12 @@ async def websocket_endpoint(websocket: WebSocket):
 
         speech_active = False
 
-        speech_buffer = []
+        speech_buffer = np.array(
+            [],
+            dtype=np.float32,
+        )
 
-        partial_sent_samples = 0
+        emitted_speech_chunk = False
 
         # Buffer used ONLY for VAD framing
         vad_frame_buffer = np.array(
@@ -256,8 +297,9 @@ async def websocket_endpoint(websocket: WebSocket):
                                     vad_frame
                                 )
 
-                                vad_result = vad_iterator(
-                                    pcm_tensor
+                                vad_result = run_vad(
+                                    vad_iterator,
+                                    pcm_tensor,
                                 )
 
                                 # =====================
@@ -276,98 +318,24 @@ async def websocket_endpoint(websocket: WebSocket):
                                         f"Speech started"
                                     )
 
-                                # =====================
-                                # accumulate speech
-                                # =====================
-
                                 if speech_active:
 
-                                    speech_buffer.extend(
-                                        vad_frame
+                                    speech_buffer = np.concatenate(
+                                        [
+                                            speech_buffer,
+                                            vad_frame,
+                                        ]
                                     )
 
-                                    current_samples = len(
-                                        speech_buffer
-                                    )
-
-                                    # ================
-                                    # partial realtime
-                                    # transcription
-                                    # ================
-
-                                    if (
-                                        current_samples
-                                        - partial_sent_samples
-                                        >= PARTIAL_SAMPLES
+                                    while (
+                                        len(speech_buffer)
+                                        >= CHUNK_SAMPLES
                                     ):
 
-                                        audio_np = np.array(
-                                            speech_buffer,
-                                            dtype=np.float32,
-                                        )
-
-                                        wav = torch.tensor(
-                                            audio_np,
-                                            dtype=torch.float32,
-                                        ).unsqueeze(0)
-
-                                        job = (
-                                            TranscriptionJob(
-                                                request_id=str(
-                                                    uuid.uuid4()
-                                                ),
-                                                client_id=client_id,
-                                                chunk_id=state[
-                                                    "chunk_counter"
-                                                ],
-                                                wav=wav,
-                                                is_partial=True,
-                                                language=language,
-                                            )
-                                        )
-
-                                        state[
-                                            "chunk_counter"
-                                        ] += 1
-
-                                        partial_sent_samples = (
-                                            current_samples
-                                        )
-
-                                        asyncio.run_coroutine_threadsafe(
-                                            transcription_queue.put(
-                                                job
-                                            ),
-                                            loop,
-                                        )
-
-                                        print(
-                                            f"[{client_id}] "
-                                            f"Partial chunk queued "
-                                            f"({len(audio_np)} samples)"
-                                        )
-
-                                # =====================
-                                # speech end
-                                # =====================
-
-                                if (
-                                    vad_result is not None
-                                    and "end" in vad_result
-                                ):
-
-                                    print(
-                                        f"[{client_id}] "
-                                        f"Speech ended"
-                                    )
-
-                                    speech_active = False
-
-                                    if len(speech_buffer) > 0:
-
-                                        audio_np = np.array(
-                                            speech_buffer,
-                                            dtype=np.float32,
+                                        audio_np = (
+                                            speech_buffer[
+                                                :CHUNK_SAMPLES
+                                            ].copy()
                                         )
 
                                         wav = torch.tensor(
@@ -395,11 +363,100 @@ async def websocket_endpoint(websocket: WebSocket):
                                         ] += 1
 
                                         asyncio.run_coroutine_threadsafe(
-                                            transcription_queue.put(
+                                            enqueue_transcription_job(
                                                 job
                                             ),
                                             loop,
+                                        ).result()
+
+                                        emitted_speech_chunk = True
+
+                                        if OVERLAP_SAMPLES > 0:
+                                            speech_buffer = (
+                                                speech_buffer[
+                                                    CHUNK_SAMPLES
+                                                    - OVERLAP_SAMPLES:
+                                                ]
+                                            )
+                                        else:
+                                            speech_buffer = (
+                                                speech_buffer[
+                                                    CHUNK_SAMPLES:
+                                                ]
+                                            )
+
+                                        print(
+                                            f"[{client_id}] "
+                                            f"Final chunk queued "
+                                            f"({len(audio_np)} samples)"
                                         )
+
+                                # =====================
+                                # speech end
+                                # =====================
+
+                                if (
+                                    vad_result is not None
+                                    and "end" in vad_result
+                                ):
+
+                                    print(
+                                        f"[{client_id}] "
+                                        f"Speech ended"
+                                    )
+
+                                    speech_active = False
+
+                                    if emitted_speech_chunk:
+                                        flush_new_samples = max(
+                                            0,
+                                            len(speech_buffer)
+                                            - OVERLAP_SAMPLES,
+                                        )
+                                    else:
+                                        flush_new_samples = len(
+                                            speech_buffer
+                                        )
+
+                                    if (
+                                        flush_new_samples
+                                        >= MIN_FINAL_FLUSH_SAMPLES
+                                    ):
+
+                                        audio_np = (
+                                            speech_buffer.copy()
+                                        )
+
+                                        wav = torch.tensor(
+                                            audio_np,
+                                            dtype=torch.float32,
+                                        ).unsqueeze(0)
+
+                                        job = (
+                                            TranscriptionJob(
+                                                request_id=str(
+                                                    uuid.uuid4()
+                                                ),
+                                                client_id=client_id,
+                                                chunk_id=state[
+                                                    "chunk_counter"
+                                                ],
+                                                wav=wav,
+                                                is_partial=False,
+                                                language=language,
+                                            )
+                                        )
+
+                                        state[
+                                            "chunk_counter"
+                                        ] += 1
+
+                                        asyncio.run_coroutine_threadsafe(
+                                            enqueue_transcription_job(
+                                                job
+                                            ),
+                                            loop,
+                                        ).result()
 
                                         print(
                                             f"[{client_id}] "
@@ -411,9 +468,12 @@ async def websocket_endpoint(websocket: WebSocket):
                                     # reset utterance
                                     # =================
 
-                                    speech_buffer = []
+                                    speech_buffer = np.array(
+                                        [],
+                                        dtype=np.float32,
+                                    )
 
-                                    partial_sent_samples = 0
+                                    emitted_speech_chunk = False
 
                 except av.FFmpegError as e:
 
