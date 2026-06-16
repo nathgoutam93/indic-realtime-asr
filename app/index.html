@@ -1,7 +1,9 @@
 <!doctype html>
 <html lang="en">
 <head>
+
   <meta charset="UTF-8">
+
   <meta
     name="viewport"
     content="width=device-width, initial-scale=1.0"
@@ -10,6 +12,7 @@
   <title>Streaming ASR Client</title>
 
   <style>
+
     :root {
       --bg-color: #0f172a;
       --card-bg: #1e293b;
@@ -28,6 +31,7 @@
     }
 
     body {
+
       font-family:
         -apple-system,
         BlinkMacSystemFont,
@@ -50,6 +54,7 @@
     }
 
     .container {
+
       background: var(--card-bg);
 
       width: 100%;
@@ -67,6 +72,7 @@
     }
 
     h2 {
+
       font-size: 1.5rem;
       font-weight: 600;
 
@@ -78,6 +84,7 @@
     }
 
     .controls-row {
+
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -102,6 +109,7 @@
     }
 
     #micBtn {
+
       width: 48px;
       height: 48px;
 
@@ -145,6 +153,7 @@
     }
 
     #micBtn.recording::after {
+
       content: '';
 
       position: absolute;
@@ -164,6 +173,7 @@
     }
 
     @keyframes pulse {
+
       0% {
         transform: scale(1);
         opacity: 0.4;
@@ -176,6 +186,7 @@
     }
 
     .status-badge {
+
       font-size: 0.85rem;
       font-weight: 500;
 
@@ -188,6 +199,7 @@
     }
 
     .status-dot {
+
       width: 8px;
       height: 8px;
 
@@ -199,6 +211,7 @@
     }
 
     .status-badge.connecting .status-dot {
+
       background-color: #eab308;
 
       animation: blink 1s infinite alternate;
@@ -209,6 +222,7 @@
     }
 
     @keyframes blink {
+
       0% {
         opacity: 0.3;
       }
@@ -219,6 +233,7 @@
     }
 
     select {
+
       background-color: var(--bg-color);
 
       color: var(--text-primary);
@@ -254,12 +269,14 @@
     }
 
     .output-header {
+
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
 
     .output-label {
+
       font-size: 0.8rem;
 
       text-transform: uppercase;
@@ -277,6 +294,7 @@
     }
 
     .text-action-btn {
+
       background: rgba(255, 255, 255, 0.05);
 
       border: 1px solid var(--border-color);
@@ -297,6 +315,7 @@
     }
 
     .text-action-btn:hover {
+
       background: rgba(255, 255, 255, 0.1);
 
       color: var(--text-primary);
@@ -309,6 +328,7 @@
     }
 
     #output {
+
       background-color: rgba(0, 0, 0, 0.2);
 
       color: var(--text-primary);
@@ -339,11 +359,14 @@
     }
 
     #output::-webkit-scrollbar-thumb {
+
       background: var(--border-color);
+
       border-radius: 4px;
     }
 
     #mimeInfo {
+
       font-size: 0.75rem;
 
       color: var(--text-muted);
@@ -360,11 +383,8 @@
       font-style: italic;
     }
 
-    .partial-line {
-      opacity: 0.7;
-      font-style: italic;
-    }
   </style>
+
 </head>
 
 <body>
@@ -383,7 +403,6 @@
         >
 
           <svg
-            id="micIcon"
             viewBox="0 0 24 24"
           >
             <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1 9h2c0 .55-.45 1-1 1s-1-.45-1-1zm6-12c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-2.08c3.39-.49 6-3.39 6-6.92h-2z"/>
@@ -395,16 +414,19 @@
           id="statusBadge"
           class="status-badge"
         >
+
           <span class="status-dot"></span>
 
           <span id="statusText">
             Idle
           </span>
+
         </div>
 
       </div>
 
       <select id="languageSelect">
+
         <option value="as" selected>
           Assamese (as)
         </option>
@@ -424,6 +446,7 @@
         <option value="ne">
           Nepali (ne)
         </option>
+
       </select>
 
     </div>
@@ -466,7 +489,20 @@
 
   </div>
 
-  <script>
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+
+  <script type="module">
+    
+    import { MicVAD } from "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web/+esm";
+    // ============================================
+    // ONNX Runtime config
+    // ============================================
+
+    ort.env.wasm.numThreads = 1;
+
+    ort.env.wasm.simd = true;
+
+    ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/";
 
     // ====================================================
     // Config
@@ -475,13 +511,18 @@
     const WS_URL =
       `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`;
 
-    const TIMESLICE_MS = 100;
+    const TIMESLICE_MS = 250;
 
     const MIC_CONSTRAINTS = {
+
       audio: {
+
         channelCount: 1,
+
         echoCancellation: true,
+
         noiseSuppression: true,
+
         autoGainControl: true,
       },
     };
@@ -499,8 +540,11 @@
     let websocket;
     let mediaRecorder;
     let stream;
+    let vad;
 
     let isRecordingState = false;
+    let isSpeechActive = false;
+    let vadHeartbeatTimer;
 
     let finalizedTranscript = "";
     let livePartial = "";
@@ -536,7 +580,7 @@
 
 
     // ====================================================
-    // UI State
+    // UI
     // ====================================================
 
     function updateUiState(state) {
@@ -581,7 +625,9 @@
           "status-badge listening";
 
         statusText.textContent =
-          "Listening";
+          isSpeechActive
+            ? "Speaking"
+            : "Listening";
 
         languageSelect.disabled = true;
       }
@@ -589,7 +635,7 @@
 
 
     // ====================================================
-    // Transcript Renderer
+    // Transcript
     // ====================================================
 
     function renderTranscript() {
@@ -606,7 +652,8 @@
         text += livePartial;
       }
 
-      outputEl.textContent = text;
+      outputEl.textContent =
+        text;
 
       outputEl.scrollTop =
         outputEl.scrollHeight;
@@ -636,7 +683,7 @@
 
 
     // ====================================================
-    // Mime Detection
+    // Mime
     // ====================================================
 
     function detectMime() {
@@ -646,6 +693,7 @@
         if (
           MediaRecorder.isTypeSupported(mime)
         ) {
+
           return mime;
         }
       }
@@ -658,35 +706,65 @@
     // Reset
     // ====================================================
 
-    function resetRecorderState() {
+    async function resetRecorderState() {
 
-      if (stream) {
+      try {
 
-        stream
-          .getTracks()
-          .forEach((t) => t.stop());
+        if (vad) {
 
-        stream = null;
-      }
+          vad.pause();
 
-      if (
-        websocket?.readyState === WebSocket.OPEN
-        || websocket?.readyState === WebSocket.CONNECTING
-      ) {
+          vad = null;
+        }
 
-        websocket.close();
+        if (vadHeartbeatTimer) {
+
+          clearInterval(vadHeartbeatTimer);
+
+          vadHeartbeatTimer = null;
+        }
+
+        if (
+          mediaRecorder
+          && mediaRecorder.state !== "inactive"
+        ) {
+
+          mediaRecorder.stop();
+        }
+
+        if (stream) {
+
+          stream
+            .getTracks()
+            .forEach((t) => t.stop());
+
+          stream = null;
+        }
+
+        if (
+          websocket?.readyState === WebSocket.OPEN
+          || websocket?.readyState === WebSocket.CONNECTING
+        ) {
+
+          websocket.close();
+        }
+
+      } catch (err) {
+
+        console.error(err);
       }
 
       websocket = null;
-
       mediaRecorder = null;
+
+      isSpeechActive = false;
 
       updateUiState('idle');
     }
 
 
     // ====================================================
-    // Mic Access
+    // Mic
     // ====================================================
 
     async function getMicrophoneStream() {
@@ -698,37 +776,49 @@
         );
       }
 
+      return navigator
+        .mediaDevices
+        .getUserMedia(MIC_CONSTRAINTS);
+    }
+
+
+    // ====================================================
+    // MediaRecorder start
+    // ====================================================
+
+    function beginMediaRecorder() {
+
+      if (!mediaRecorder)
+        return;
+
       if (
-        !navigator.mediaDevices?.getUserMedia
+        mediaRecorder.state === "recording"
       ) {
-
-        throw new Error(
-          "Audio capture unsupported."
-        );
+        return;
       }
 
-      try {
+      mediaRecorder.start(
+        TIMESLICE_MS
+      );
+    }
 
-        return await navigator
-          .mediaDevices
-          .getUserMedia(MIC_CONSTRAINTS);
 
-      } catch (err) {
+    // ====================================================
+    // MediaRecorder stop
+    // ====================================================
 
-        if (
-          err.name === "OverconstrainedError"
-          || err.name === "ConstraintNotSatisfiedError"
-        ) {
+    function endMediaRecorder() {
 
-          return navigator
-            .mediaDevices
-            .getUserMedia({
-              audio: true
-            });
-        }
+      if (!mediaRecorder)
+        return;
 
-        throw err;
+      if (
+        mediaRecorder.state === "inactive"
+      ) {
+        return;
       }
+
+      mediaRecorder.stop();
     }
 
 
@@ -752,33 +842,30 @@
           `${WS_URL}?language=${encodeURIComponent(selectedLanguage)}`
         );
 
-        websocket.binaryType = "arraybuffer";
+        websocket.binaryType =
+          "arraybuffer";
 
 
         // ===============================================
-        // Incoming messages
+        // websocket messages
         // ===============================================
 
         websocket.onmessage = (e) => {
 
           try {
 
-            const msg = JSON.parse(e.data);
+            const msg =
+              JSON.parse(e.data);
 
-            // ===========================================
-            // transcription
-            // ===========================================
-
-            if (msg.type === "transcription") {
+            if (
+              msg.type === "transcription"
+            ) {
 
               const text =
                 msg.text?.trim();
 
-              if (!text) return;
-
-              // =======================================
-              // partial
-              // =======================================
+              if (!text)
+                return;
 
               if (msg.is_partial) {
 
@@ -788,10 +875,6 @@
 
                 return;
               }
-
-              // =======================================
-              // final
-              // =======================================
 
               if (
                 finalizedTranscript.length > 0
@@ -805,15 +888,11 @@
               livePartial = "";
 
               renderTranscript();
-
-              return;
             }
 
-            // ===========================================
-            // error
-            // ===========================================
-
-            if (msg.type === "error") {
+            else if (
+              msg.type === "error"
+            ) {
 
               displaySystemError(
                 msg.message
@@ -859,6 +938,10 @@
         );
 
 
+        // ===============================================
+        // mime
+        // ===============================================
+
         const mimeType =
           detectMime();
 
@@ -872,6 +955,10 @@
         mimeEl.textContent =
           `Codec: ${mimeType}`;
 
+
+        // ===============================================
+        // media recorder
+        // ===============================================
 
         mediaRecorder =
           new MediaRecorder(
@@ -889,7 +976,9 @@
             if (
               websocket?.readyState
               !== WebSocket.OPEN
-            ) return;
+            ) {
+              return;
+            }
 
             const buffer =
               await event.data.arrayBuffer();
@@ -906,21 +995,68 @@
         };
 
 
-        mediaRecorder.onstart = () => {
+        // ===============================================
+        // VAD
+        // ===============================================
 
-          updateUiState('listening');
-        };
+        vad = await MicVAD.new({
+
+          stream,
+
+          baseAssetPath:
+            "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web/dist/",
+
+          onnxWASMBasePath:
+            "https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/",
+
+          positiveSpeechThreshold: 0.8,
+
+          negativeSpeechThreshold: 0.5,
+
+          redemptionFrames: 8,
+
+          preSpeechPadFrames: 6,
+
+          minSpeechFrames: 3,
+
+          onSpeechStart: () => {
+
+            console.log(
+              "Speech start"
+            );
+
+            isSpeechActive = true;
+
+            updateUiState('listening');
+          },
+
+          onSpeechEnd: () => {
+
+            console.log(
+              "Speech end"
+            );
+
+            isSpeechActive = false;
+
+            updateUiState('listening');
+          },
+        });
 
 
-        mediaRecorder.onstop = () => {
+        vad.start();
 
-          updateUiState('idle');
-        };
-
-
-        mediaRecorder.start(
-          TIMESLICE_MS
+        vadHeartbeatTimer = setInterval(
+          () => {
+            if (isRecordingState) {
+              updateUiState('listening');
+            }
+          },
+          1000
         );
+
+        beginMediaRecorder();
+
+        updateUiState('listening');
 
       } catch (err) {
 
@@ -929,6 +1065,8 @@
           || err.name
           || "Unknown failure"
         );
+
+        console.error(err);
 
         resetRecorderState();
       }
@@ -939,35 +1077,9 @@
     // Stop Recording
     // ====================================================
 
-    function stopRecording() {
+    async function stopRecording() {
 
-      if (
-        mediaRecorder?.state !== "inactive"
-      ) {
-
-        mediaRecorder.stop();
-      }
-
-      if (stream) {
-
-        stream
-          .getTracks()
-          .forEach((t) => t.stop());
-
-        stream = null;
-      }
-
-      setTimeout(() => {
-
-        if (
-          websocket?.readyState
-          === WebSocket.OPEN
-        ) {
-
-          websocket.close();
-        }
-
-      }, 300);
+      await resetRecorderState();
     }
 
 
@@ -1002,13 +1114,14 @@
       const textToCopy =
         outputEl.textContent.trim();
 
-      if (!textToCopy) return;
+      if (!textToCopy)
+        return;
 
       try {
 
-        await navigator.clipboard.writeText(
-          textToCopy
-        );
+        await navigator
+          .clipboard
+          .writeText(textToCopy);
 
         const originalText =
           copyBtn.textContent;

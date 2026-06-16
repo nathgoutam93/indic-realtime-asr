@@ -1,0 +1,11 @@
+uvicorn
+dotenv
+fastapi
+websockets
+python-multipart
+
+numpy
+av
+rapidfuzz
+
+huggingface_hub

@@ -11,7 +11,7 @@ from .workers import start_workers
 from .model import load_asr_model  # Import our loading orchestrator
 from .vad_model import load_vad_model
 
-INDEX_HTML = Path(__file__).with_name("index-with-vad.html")
+INDEX_HTML = Path(__file__).with_name("index.html")
 ASR_WORKERS = int(
     os.getenv(
         "ASR_WORKERS",

@@ -1,0 +1,7 @@
+silero-vad
+onnx
+onnxruntime-gpu
+transformers
+
+torch
+torchaudio

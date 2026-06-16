@@ -56,6 +56,16 @@ def _move_to_device(value):
     return value
 
 
+def _describe_model_device(loaded_model):
+    for parameter in loaded_model.parameters():
+        return parameter.device
+
+    for buffer in loaded_model.buffers():
+        return buffer.device
+
+    return DEVICE
+
+
 def load_asr_model():
     global model
     if model is not None:
@@ -81,7 +91,7 @@ def load_asr_model():
         _assert_model_on_device(model)
         model.eval()
 
-        print(f"ASR model loaded on {next(model.parameters()).device}")
+        print(f"ASR model loaded on {_describe_model_device(model)}")
 
     return model
 
