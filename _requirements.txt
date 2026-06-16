@@ -8,7 +8,6 @@ websockets
 rapidfuzz
 
 onnx
-onnxruntime
 onnxruntime-gpu
 transformers
 huggingface_hub
