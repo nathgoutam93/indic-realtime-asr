@@ -1,4 +1,5 @@
 # main.py
+import asyncio
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -22,13 +23,14 @@ ASR_WORKERS = int(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 1. This runs EXACTLY ONCE when the actual live worker process boots up
-    load_asr_model()
-    load_vad_model()
-    
-    # 2. Kick off your asyncio background worker loops
+    # Start model loading in the background so startup does not block on
+    # large Hugging Face downloads or first-time cache population.
+    asyncio.create_task(asyncio.to_thread(load_asr_model))
+    asyncio.create_task(asyncio.to_thread(load_vad_model))
+
+    # Kick off asyncio background worker loops.
     await start_workers(num_workers=ASR_WORKERS)
-    
+
     yield
     # Any teardown logic (if needed) goes here when the app closes
 
