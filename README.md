@@ -16,4 +16,4 @@ python3 run.py
 ```
 
 You can set runtime configuration either in your shell environment or in a local `.env` file.
-See [`env.example`](/home/gnrc/ai4bharat/env.example) for the full list of supported variables, defaults, and comments.
+See [`env.example`](./env.example) for the full list of supported variables, defaults, and comments.

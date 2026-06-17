@@ -1,0 +1,870 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WebSocket Transcription Stress Test</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #060814;
+      --bg-2: #0a1020;
+      --panel: rgba(11, 16, 33, 0.84);
+      --panel-strong: rgba(8, 12, 25, 0.96);
+      --border: rgba(148, 163, 184, 0.18);
+      --text: #e8eefc;
+      --muted: #9aa8c4;
+      --accent: #64f0d1;
+      --accent-2: #7c83ff;
+      --warning: #fbbf24;
+      --danger: #fb7185;
+      --success: #4ade80;
+      --shadow: 0 30px 90px rgba(0, 0, 0, 0.38);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      min-height: 100%;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(100, 240, 209, 0.18), transparent 28%),
+        radial-gradient(circle at top right, rgba(124, 131, 255, 0.24), transparent 26%),
+        radial-gradient(circle at 50% 120%, rgba(251, 191, 36, 0.08), transparent 30%),
+        linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
+      padding: 24px;
+    }
+
+    .shell {
+      width: min(1200px, 100%);
+      margin: 0 auto;
+      display: grid;
+      gap: 20px;
+    }
+
+    .hero {
+      display: grid;
+      gap: 10px;
+      padding: 6px 4px;
+    }
+
+    .eyebrow {
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2.2rem, 5vw, 4.3rem);
+      line-height: 0.96;
+      letter-spacing: -0.05em;
+      max-width: 11ch;
+    }
+
+    .subhead {
+      margin: 0;
+      max-width: 80ch;
+      color: var(--muted);
+      line-height: 1.7;
+      font-size: 15px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 20px;
+      grid-template-columns: 360px minmax(0, 1fr);
+      align-items: start;
+    }
+
+    .card {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      background: linear-gradient(180deg, rgba(17, 24, 44, 0.86), rgba(8, 12, 25, 0.92));
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      background:
+        linear-gradient(135deg, rgba(100, 240, 209, 0.08), transparent 30%),
+        linear-gradient(315deg, rgba(124, 131, 255, 0.08), transparent 34%);
+    }
+
+    .panel {
+      position: relative;
+      z-index: 1;
+      padding: 22px;
+    }
+
+    .stack {
+      display: grid;
+      gap: 14px;
+    }
+
+    .label {
+      display: grid;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .label small {
+      color: var(--muted);
+      font-weight: 500;
+      line-height: 1.45;
+    }
+
+    input,
+    select,
+    button {
+      font: inherit;
+    }
+
+    input,
+    select {
+      width: 100%;
+      border-radius: 14px;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      background: rgba(5, 8, 18, 0.92);
+      color: var(--text);
+      padding: 13px 14px;
+      outline: none;
+    }
+
+    input:focus,
+    select:focus {
+      border-color: rgba(100, 240, 209, 0.6);
+      box-shadow: 0 0 0 3px rgba(100, 240, 209, 0.12);
+    }
+
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    input[type="number"] {
+      appearance: textfield;
+    }
+
+    .button-row {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 13px 16px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform 120ms ease, opacity 120ms ease, box-shadow 120ms ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button:disabled {
+      cursor: progress;
+      opacity: 0.55;
+      transform: none;
+    }
+
+    .primary {
+      color: #07111f;
+      background: linear-gradient(135deg, var(--accent) 0%, #93c5fd 100%);
+      box-shadow: 0 10px 30px rgba(100, 240, 209, 0.22);
+    }
+
+    .ghost {
+      color: var(--text);
+      background: rgba(148, 163, 184, 0.08);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+    }
+
+    .note {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .metrics {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .metric {
+      min-height: 96px;
+      padding: 16px;
+      border-radius: 18px;
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      background: rgba(5, 8, 18, 0.74);
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      margin-bottom: 10px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 24px;
+      line-height: 1.1;
+      word-break: break-word;
+    }
+
+    .metric .sub {
+      display: block;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .log {
+      display: grid;
+      gap: 14px;
+    }
+
+    .log-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .log-header h2 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: -0.02em;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      background: rgba(148, 163, 184, 0.08);
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #64748b;
+      box-shadow: 0 0 0 0 rgba(100, 240, 209, 0.45);
+    }
+
+    .pill.live .dot {
+      background: var(--success);
+      animation: pulse 1.8s infinite ease-out;
+    }
+
+    .pill.busy .dot {
+      background: var(--warning);
+      animation: pulse 1.4s infinite ease-out;
+    }
+
+    .pill.error .dot {
+      background: var(--danger);
+    }
+
+    @keyframes pulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(100, 240, 209, 0.36);
+      }
+      100% {
+        box-shadow: 0 0 0 16px rgba(100, 240, 209, 0);
+      }
+    }
+
+    pre {
+      margin: 0;
+      min-height: 520px;
+      max-height: 70vh;
+      overflow: auto;
+      border-radius: 18px;
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      background: var(--panel-strong);
+      padding: 18px;
+      color: #dbeafe;
+      font-size: 12px;
+      line-height: 1.65;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .footer-note {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+      padding-top: 2px;
+    }
+
+    @media (max-width: 1024px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      pre {
+        min-height: 360px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 14px;
+      }
+
+      .panel {
+        padding: 18px;
+      }
+
+      .button-row,
+      .metrics {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div class="eyebrow">WebSocket load test</div>
+      <h1>One mic source, many concurrent transcription sockets.</h1>
+      <p class="subhead">
+        This page opens a configurable number of WebSocket connections to <code>/ws</code>, reuses one live microphone stream for every socket, and keeps browser memory low with a fixed 5 MB log buffer.
+      </p>
+    </section>
+
+    <section class="grid">
+      <aside class="card">
+        <div class="panel stack">
+          <label class="label">
+            Connection count
+            <small>How many WebSocket clients to keep in flight at once.</small>
+            <input id="connectionCount" type="number" min="1" max="500" step="1" value="10">
+          </label>
+
+          <label class="label">
+            Language
+            <small>Passed as the <code>language</code> query parameter to every socket.</small>
+            <input id="language" type="text" value="en" spellcheck="false" autocomplete="off">
+          </label>
+
+          <div class="button-row">
+            <button id="startBtn" class="primary" type="button">Start test</button>
+            <button id="stopBtn" class="ghost" type="button" disabled>Stop</button>
+          </div>
+
+          <div class="note">
+            Audio is captured once and streamed to all open sockets.
+            The log view is capped at 5 MB so the browser keeps memory use bounded while the socket pool stays alive.
+          </div>
+
+          <div class="note" id="supportNote"></div>
+          <div class="note" id="statusText">Idle.</div>
+        </div>
+      </aside>
+
+      <section class="card">
+        <div class="panel log">
+          <div class="metrics">
+            <div class="metric">
+              <span>Requested</span>
+              <strong id="metricRequested">0</strong>
+              <div class="sub">Target socket pool size.</div>
+            </div>
+            <div class="metric">
+              <span>Open</span>
+              <strong id="metricOpen">0</strong>
+              <div class="sub">Sockets currently in OPEN state.</div>
+            </div>
+            <div class="metric">
+              <span>Chunks sent</span>
+              <strong id="metricChunks">0</strong>
+              <div class="sub">Mic blobs broadcast to the pool.</div>
+            </div>
+            <div class="metric">
+              <span>Responses</span>
+              <strong id="metricResponses">0</strong>
+              <div class="sub">Messages received back from the server.</div>
+            </div>
+          </div>
+
+          <div class="log-header">
+            <h2>Activity log</h2>
+            <div id="statePill" class="pill"><span class="dot"></span><span>idle</span></div>
+          </div>
+
+          <pre id="logOutput" aria-live="polite"></pre>
+          <div class="footer-note">
+            The oldest log lines are evicted automatically once the buffer exceeds 5 MB.
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const LOG_BUFFER_LIMIT_BYTES = 5 * 1024 * 1024;
+      const TIMESLICE_MS = 250;
+      const MIME_PRIORITY = [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+      ];
+
+      const connectionCountInput = document.getElementById("connectionCount");
+      const languageInput = document.getElementById("language");
+      const startBtn = document.getElementById("startBtn");
+      const stopBtn = document.getElementById("stopBtn");
+      const supportNote = document.getElementById("supportNote");
+      const statusText = document.getElementById("statusText");
+      const statePill = document.getElementById("statePill");
+      const logOutput = document.getElementById("logOutput");
+      const metricRequested = document.getElementById("metricRequested");
+      const metricOpen = document.getElementById("metricOpen");
+      const metricChunks = document.getElementById("metricChunks");
+      const metricResponses = document.getElementById("metricResponses");
+
+      let stream = null;
+      let mediaRecorder = null;
+      let running = false;
+      let desiredConnections = 0;
+      let socketSerial = 0;
+      let openSockets = [];
+      let logBuffer = [];
+      let logBufferBytes = 0;
+      let counts = {
+        chunks: 0,
+        responses: 0,
+        opens: 0,
+        closes: 0,
+        errors: 0
+      };
+
+      const wsProtocol = location.protocol === "https:" ? "wss:" : "ws:";
+      const wsBase = `${wsProtocol}//${location.host}/ws`;
+
+      function setPill(kind, text) {
+        statePill.className = `pill${kind ? ` ${kind}` : ""}`;
+        statePill.querySelector("span:last-child").textContent = text;
+      }
+
+      function setStatus(text, kind = "") {
+        statusText.textContent = text;
+        setPill(kind, text);
+      }
+
+      function formatTime() {
+        return new Date().toLocaleTimeString([], {
+          hour12: false,
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit"
+        });
+      }
+
+      function trimText(value, max = 180) {
+        if (typeof value !== "string") {
+          value = String(value);
+        }
+        return value.length > max ? `${value.slice(0, max)}…` : value;
+      }
+
+      function renderLog() {
+        logOutput.textContent = logBuffer.join("\n");
+        logOutput.scrollTop = logOutput.scrollHeight;
+      }
+
+      function lineSizeBytes(line) {
+        return new TextEncoder().encode(`${line}\n`).length;
+      }
+
+      function trimLogBufferToLimit() {
+        while (logBuffer.length > 0 && logBufferBytes > LOG_BUFFER_LIMIT_BYTES) {
+          const removed = logBuffer.shift();
+          logBufferBytes -= lineSizeBytes(removed);
+        }
+      }
+
+      function pushLog(message) {
+        const line = `[${formatTime()}] ${message}`;
+        logBuffer.push(line);
+        logBufferBytes += lineSizeBytes(line);
+        trimLogBufferToLimit();
+        renderLog();
+      }
+
+      function updateMetrics() {
+        const openCount = openSockets.filter((socket) => socket.readyState === WebSocket.OPEN).length;
+        metricRequested.textContent = String(desiredConnections);
+        metricOpen.textContent = String(openCount);
+        metricChunks.textContent = String(counts.chunks);
+        metricResponses.textContent = String(counts.responses);
+      }
+
+      function closeSocket(socket, reason = "stop") {
+        if (!socket) return;
+        try {
+          if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+            socket.close(1000, reason);
+          }
+        } catch (err) {
+          // Ignore close failures during churn.
+        }
+      }
+
+      function closeAllSockets(reason = "stop") {
+        for (const socket of openSockets) {
+          closeSocket(socket, reason);
+        }
+        openSockets = [];
+        updateMetrics();
+      }
+
+      function buildWebSocketUrl() {
+        const language = encodeURIComponent(languageInput.value.trim() || "as");
+        // Removed sample_rate parameter as MediaRecorder manages containerized encoding parameters
+        return `${wsBase}?language=${language}`;
+      }
+
+      function detectMime() {
+        for (const mime of MIME_PRIORITY) {
+          if (MediaRecorder.isTypeSupported(mime)) {
+            return mime;
+          }
+        }
+        return "";
+      }
+
+      function attachSocketLifecycle(socket, label) {
+        socket.binaryType = "arraybuffer";
+
+        socket.addEventListener("open", () => {
+          counts.opens += 1;
+          pushLog(`${label} open`);
+          updateMetrics();
+        });
+
+        socket.addEventListener("message", async (event) => {
+          counts.responses += 1;
+          let preview = "";
+          if (typeof event.data === "string") {
+            preview = trimText(event.data.replace(/\s+/g, " ").trim(), 220);
+          } else if (event.data instanceof Blob) {
+            try {
+              preview = trimText(await event.data.text(), 220);
+            } catch (err) {
+              preview = `[blob ${event.data.size} bytes]`;
+            }
+          } else if (event.data instanceof ArrayBuffer) {
+            preview = `[arraybuffer ${event.data.byteLength} bytes]`;
+          } else {
+            preview = trimText(JSON.stringify(event.data), 220);
+          }
+
+          pushLog(`${label} ws message: ${preview}`);
+          updateMetrics();
+        });
+
+        socket.addEventListener("error", () => {
+          counts.errors += 1;
+          pushLog(`${label} socket error`);
+          updateMetrics();
+          setStatus("Socket error detected. Check the server logs.", "error");
+        });
+
+        socket.addEventListener("close", (event) => {
+          counts.closes += 1;
+          pushLog(`${label} close code=${event.code} reason=${trimText(event.reason || "none", 80)}`);
+          updateMetrics();
+        });
+      }
+
+      function openSocketPool(count) {
+        return new Promise((resolve) => {
+          const freshSockets = [];
+          let openedCount = 0;
+          let failedCount = 0;
+
+          const checkReady = () => {
+            // Resolve when every socket has settled into an open or failed state
+            if (openedCount + failedCount === count) {
+              resolve(openedCount); // Returns how many successfully connected
+            }
+          };
+
+          for (let i = 0; i < count; i += 1) {
+            const label = `ws#${++socketSerial}`;
+            const socket = new WebSocket(buildWebSocketUrl());
+            attachSocketLifecycle(socket, label);
+
+            socket.addEventListener("open", () => {
+              openedCount += 1;
+              checkReady();
+            });
+
+            socket.addEventListener("close", () => {
+              // Handle handshaking failures gracefully during startup
+              if (socket.readyState !== WebSocket.OPEN) {
+                failedCount += 1;
+                checkReady();
+              }
+            });
+
+            freshSockets.push(socket);
+          }
+
+          openSockets = freshSockets;
+          updateMetrics();
+        });
+      }
+      
+     function openSocketPool(count) {
+        return new Promise((resolve) => {
+          const freshSockets = [];
+          let openedCount = 0;
+          let failedCount = 0;
+
+          const checkReady = () => {
+            // Resolve when every socket has settled into an open or failed state
+            if (openedCount + failedCount === count) {
+              resolve(openedCount); // Returns how many successfully connected
+            }
+          };
+
+          for (let i = 0; i < count; i += 1) {
+            const label = `ws#${++socketSerial}`;
+            const socket = new WebSocket(buildWebSocketUrl());
+            attachSocketLifecycle(socket, label);
+
+            socket.addEventListener("open", () => {
+              openedCount += 1;
+              checkReady();
+            });
+
+            socket.addEventListener("close", () => {
+              // Handle handshaking failures gracefully during startup
+              if (socket.readyState !== WebSocket.OPEN) {
+                failedCount += 1;
+                checkReady();
+              }
+            });
+
+            freshSockets.push(socket);
+          }
+
+          openSockets = freshSockets;
+          updateMetrics();
+        });
+      }
+
+
+      function broadcastChunk(arrayBuffer) {
+        let sent = 0;
+        for (const socket of openSockets) {
+          if (socket.readyState === WebSocket.OPEN) {
+            try {
+              socket.send(arrayBuffer);
+              sent += 1;
+            } catch (err) {
+              counts.errors += 1;
+              pushLog(`send failed: ${trimText(err.message || String(err), 120)}`);
+            }
+          }
+        }
+
+        if (sent > 0) {
+          counts.chunks += 1;
+          pushLog(`broadcast chunk ${counts.chunks} to ${sent}/${openSockets.length} sockets (${arrayBuffer.byteLength} bytes)`);
+          updateMetrics();
+        }
+      }
+
+      async function ensureStream() {
+        if (stream && stream.active) {
+          return stream;
+        }
+
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            channelCount: 1
+          }
+        });
+        return stream;
+      }
+
+      function cleanupSession() {
+        running = false;
+
+        if (mediaRecorder && mediaRecorder.state !== "inactive") {
+          try {
+            mediaRecorder.stop();
+          } catch (err) {}
+        }
+        mediaRecorder = null;
+
+        closeAllSockets("stop");
+
+        if (stream) {
+          for (const track of stream.getTracks()) {
+            track.stop();
+          }
+        }
+        stream = null;
+
+        desiredConnections = 0;
+        updateMetrics();
+        setStatus("Idle.", "");
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+      }
+
+      async function startTest() {
+        const requested = Number.parseInt(connectionCountInput.value, 10);
+
+        if (!Number.isFinite(requested) || requested < 1) {
+          setStatus("Enter a connection count of at least 1.", "error");
+          return;
+        }
+
+        if (!window.WebSocket) {
+          setStatus("This browser does not support WebSocket.", "error");
+          return;
+        }
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          setStatus("This browser does not support microphone capture.", "error");
+          return;
+        }
+
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+        setStatus("Requesting microphone permission...", "busy");
+
+        try {
+          desiredConnections = requested;
+          await ensureStream();
+        } catch (err) {
+          cleanupSession();
+          setStatus(`Microphone error: ${trimText(err.message || String(err), 120)}`, "error");
+          return;
+        }
+
+        const mimeType = detectMime();
+        if (!mimeType) {
+          cleanupSession();
+          setStatus("No supported audio mime type found (WebM/Opus).", "error");
+          return;
+        }
+
+        try {
+          running = true;
+          const activeConnections = await openSocketPool(desiredConnections);
+          
+          if (activeConnections === 0) {
+            throw new Error("No WebSockets successfully connected.");
+          }
+
+          mediaRecorder = new MediaRecorder(stream, { mimeType });
+          
+          mediaRecorder.ondataavailable = async (event) => {
+            if (!running || event.data.size === 0) return;
+            
+            // Extract underlying ArrayBuffer matching the production setup 
+            const buffer = await event.data.arrayBuffer();
+            broadcastChunk(buffer);
+          };
+
+          mediaRecorder.onerror = (e) => {
+            pushLog(`MediaRecorder error: ${e.error}`);
+          };
+
+          mediaRecorder.start(TIMESLICE_MS);
+          
+          setStatus(`Running with ${desiredConnections} sockets. Log buffer capped at 5 MB.`, "live");
+          pushLog(`started with ${desiredConnections} connections streaming ${mimeType}`);
+        } catch (err) {
+          cleanupSession();
+          setStatus(`Start failed: ${trimText(err.message || String(err), 120)}`, "error");
+        }
+      }
+
+      function stopTest() {
+        if (!running && !stream && openSockets.length === 0) {
+          cleanupSession();
+          return;
+        }
+        pushLog("stopping test");
+        cleanupSession();
+      }
+
+      if (window.MediaRecorder) {
+        const preferredMime = detectMime();
+        supportNote.textContent = preferredMime 
+          ? `MediaRecorder supported. Using codec: ${preferredMime}` 
+          : "MediaRecorder available, but required WebM formats are missing.";
+      } else {
+        supportNote.textContent = "MediaRecorder is not supported in this browser.";
+      }
+
+      startBtn.addEventListener("click", startTest);
+      stopBtn.addEventListener("click", stopTest);
+
+      window.addEventListener("beforeunload", () => {
+        cleanupSession();
+      });
+
+      updateMetrics();
+      setStatus("Idle.", "");
+      pushLog("ready");
+    })();
+  </script>
+</body>
+</html>

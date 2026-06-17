@@ -12,6 +12,7 @@ from .model import load_asr_model  # Import our loading orchestrator
 from .vad_model import load_vad_model
 
 INDEX_HTML = Path(__file__).with_name("index.html")
+TEST_HTML = Path(__file__).with_name("stress-test.html")
 ASR_WORKERS = int(
     os.getenv(
         "ASR_WORKERS",
@@ -39,6 +40,9 @@ app = FastAPI(lifespan=lifespan)
 async def index():
     return FileResponse(INDEX_HTML)
 
+@app.get("/stress-test")
+async def index():
+    return FileResponse(TEST_HTML)
 
 @app.websocket("/ws")
 async def websocket_route(websocket: WebSocket):
