@@ -37,6 +37,9 @@ async def lifespan(app: FastAPI):
 # Register the lifespan loop directly into your app
 app = FastAPI(lifespan=lifespan)
 
+@app.get("/ping")
+async def health_check():
+    return {"status": "healthy"}
 
 @app.get("/")
 async def index():
