@@ -83,8 +83,7 @@ def load_asr_model():
         model = AutoModel.from_pretrained(
             "ai4bharat/indic-conformer-600m-multilingual",
             trust_remote_code=True,
-            token=HF_TOKEN,
-            cache_dir="./hf_cache"
+            token=HF_TOKEN
         )
 
         model = model.to(DEVICE)
