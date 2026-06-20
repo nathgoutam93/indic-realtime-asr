@@ -1,5 +1,4 @@
 silero-vad
-onnx
-onnxruntime-gpu
+onnxruntime-gpu==1.22.0
 transformers
 
