@@ -12,11 +12,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements/base.txt requirements/base.txt
-COPY requirements/gpu.txt requirements/gpu.txt
+COPY requirements/cpu.txt requirements/cpu.txt
 
 RUN python3 -m pip install --upgrade pip \
     && python3 -m pip install --no-cache-dir -r requirements/base.txt \
-    && python3 -m pip install --no-cache-dir -r requirements/gpu.txt
+    && python3 -m pip install --no-cache-dir -r requirements/cpu.txt
 
 COPY . .
 
