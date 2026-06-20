@@ -11,6 +11,7 @@ torch.set_num_threads(1)
 torch.set_num_interop_threads(1)
 
 HF_TOKEN = os.getenv("HF_TOKEN")
+HF_CACHE = os.getenv("HF_CACHE")
 REQUIRE_CUDA = (
     os.getenv(
         "REQUIRE_CUDA",
@@ -83,7 +84,8 @@ def load_asr_model():
         model = AutoModel.from_pretrained(
             "ai4bharat/indic-conformer-600m-multilingual",
             trust_remote_code=True,
-            token=HF_TOKEN
+            token=HF_TOKEN,
+            cache_dir=HF_CACHE
         )
 
         model = model.to(DEVICE)
