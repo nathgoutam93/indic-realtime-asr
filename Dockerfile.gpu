@@ -22,16 +22,23 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Create venv
+# Create virtual environment
 RUN python3 -m venv /opt/venv
 
 ENV PATH="/opt/venv/bin:$PATH"
 
-COPY requirements/freezed-gpu.txt requirements.txt
+COPY requirements/ requirements/
 
 RUN pip install --upgrade pip setuptools wheel
 
-RUN pip install -r requirements.txt
+# Install PyTorch CUDA 12.8
+RUN pip install \
+    --index-url https://download.pytorch.org/whl/cu128 \
+    torch torchaudio
+
+# Install application dependencies
+RUN pip install -r requirements/base.txt \
+    && pip install -r requirements/gpu.txt
 
 COPY . .
 

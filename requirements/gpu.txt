@@ -3,7 +3,3 @@ onnx
 onnxruntime-gpu
 transformers
 
---extra-index-url https://download.pytorch.org/whl/cu128
-
-torch
-torchaudio
