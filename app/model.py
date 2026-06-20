@@ -20,45 +20,7 @@ ENABLE_ASR_INFERENCE_LOCK = (
 
 HF_TOKEN = os.getenv("HF_TOKEN")
 MODEL_ID = "ai4bharat/indic-conformer-600m-multilingual"
-HF_CACHE_ROOT = os.getenv("HF_CACHE", "/runpod-volume/huggingface-cache/hub")
-
-def get_model_path(model_id: str, cache_root: str) -> str:
-    """
-    Try to use an existing cached snapshot.
-    If unavailable, download from Hugging Face.
-    """
-    try:
-        org, name = model_id.split("/", 1)
-        model_root = os.path.join(cache_root, f"models--{org}--{name}")
-        refs_main = os.path.join(model_root, "refs", "main")
-        snapshots_dir = os.path.join(model_root, "snapshots")
-
-        if os.path.isfile(refs_main):
-            with open(refs_main, "r") as f:
-                snapshot_hash = f.read().strip()
-
-            candidate = os.path.join(snapshots_dir, snapshot_hash)
-            if os.path.isdir(candidate):
-                print(f"[ModelStore] Using cached snapshot: {candidate}")
-                return candidate
-
-        raise FileNotFoundError("No valid cached snapshot found")
-
-    except Exception as e:
-        print(f"[ModelStore] Cache lookup failed: {e}")
-        print(f"[ModelStore] Downloading {model_id} from Hugging Face...")
-
-        path = snapshot_download(
-            repo_id=model_id,
-            cache_dir=cache_root,
-            local_files_only=False,
-            token=HF_TOKEN, # Pass token if repo becomes private or requires gated access
-        )
-        print(f"[ModelStore] Downloaded to: {path}")
-        return path
-
-LOCAL_MODEL_PATH = get_model_path(MODEL_ID, HF_CACHE_ROOT)
-print(f"[ModelStore] Resolved local model path: {LOCAL_MODEL_PATH}")
+HF_CACHE_ROOT = os.getenv("HF_CACHE","/runpod-volume/huggingface-cache/hub")
 
 # Global states
 model = None
@@ -93,7 +55,6 @@ def _describe_model_device(loaded_model):
     for buffer in loaded_model.buffers():
         return buffer.device
     return DEVICE
-
 def load_asr_model():
     global model
     if model is not None:
@@ -108,11 +69,13 @@ def load_asr_model():
         if DEVICE.type == "cuda":
             print(f"CUDA device: {torch.cuda.get_device_name(DEVICE)}")
 
-        # FIX: Changed trust_remote_code to True, since AI4Bharat models 
-        # use custom modeling scripts not native to transformers.
+        # --- FIX APPLIED HERE ---
+        # Pass the repository ID string instead of the absolute path.
+        # This keeps the custom remote script happy while remaining local.
         model = AutoModel.from_pretrained(
-            LOCAL_MODEL_PATH,
+            MODEL_ID,                  # "ai4bharat/indic-conformer-600m-multilingual"
             trust_remote_code=True,
+            cache_dir=HF_CACHE_ROOT,   # Tells it exactly where your cache folder is
         )
 
         model = model.to(DEVICE)
@@ -122,6 +85,7 @@ def load_asr_model():
         print(f"ASR model loaded on {_describe_model_device(model)}")
 
     return model
+
 
 def transcribe(wav, language="as"):
     global model
